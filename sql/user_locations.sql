@@ -1,6 +1,7 @@
 CREATE TABLE user_locations (
-    id SERIAL PRIMARY KEY,
-    location_id INTEGER NOT NULL,
+    id SERIAL PRIMARY KEY,    
+    chat_id BIGINT NOT NULL,
+    location_id VARCHAR(50) NOT NULL,
     name TEXT NOT NULL,
     phone TEXT NOT NULL,
     address_name TEXT NOT NULL

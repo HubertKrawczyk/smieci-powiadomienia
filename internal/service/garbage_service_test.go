@@ -137,7 +137,7 @@ func TestFetchSchedulesForLocations(t *testing.T) {
 	defer ts.Close()
 
 	service := NewGarbageService(ts.URL)
-	schedules, err := service.FetchSchedulesForLocations(context.Background(), []int{1234})
+	schedules, err := service.FetchSchedulesForLocations(context.Background(), []string{"1234"})
 	if err != nil {
 		t.Fatalf("FetchSchedulesForLocations failed: %v", err)
 	}
@@ -147,7 +147,7 @@ func TestFetchSchedulesForLocations(t *testing.T) {
 	}
 
 	sched := schedules[0]
-	if sched.LocationID != 1234 {
+	if sched.LocationID != "1234" {
 		t.Errorf("expected location ID 1234, got %d", sched.LocationID)
 	}
 

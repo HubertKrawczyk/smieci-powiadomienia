@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"smieci-sms/internal/model"
-	"strconv"
 	"time"
 )
 
 type GarbageService interface {
-	FetchSchedulesForLocations(ctx context.Context, locationIDs []int) ([]model.GarbageSchedule, error)
+	FetchSchedulesForLocations(ctx context.Context, locationIDs []string) ([]model.GarbageSchedule, error)
+	GetLocationID(ctx context.Context, street string, number string, postcode string) ([]AddressResponseItem, error)
 }
 
 type garbageService struct {
@@ -47,6 +48,11 @@ type SmieciResponseItem struct {
 	HarmonogramyZ []HarmonogramItem `json:"harmonogramyZ"`
 }
 
+type AddressResponseItem struct {
+	FullName       string `json:"fullName"`
+	AddressPointID string `json:"addressPointId"`
+}
+
 func parseTime(dateStr string) *time.Time {
 	if dateStr == "" || dateStr == "1900-01-01" {
 		return nil
@@ -59,7 +65,7 @@ func parseTime(dateStr string) *time.Time {
 	return &t
 }
 
-func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locationIDs []int) ([]model.GarbageSchedule, error) {
+func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locationIDs []string) ([]model.GarbageSchedule, error) {
 	var updatedSchedules []model.GarbageSchedule
 
 	baseURL := s.sourceURL
@@ -84,7 +90,7 @@ func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locatio
 		q.Set("p_p_mode", "view")
 		q.Set("p_p_resource_id", "ajaxResource")
 		q.Set("p_p_cacheability", "cacheLevelPage")
-		q.Set("_portalCKMjunkschedules_WAR_portalCKMjunkschedulesportlet_INSTANCE_o5AIb2mimbRJ_addressPointId", strconv.Itoa(locID))
+		q.Set("_portalCKMjunkschedules_WAR_portalCKMjunkschedulesportlet_INSTANCE_o5AIb2mimbRJ_addressPointId", locID)
 		u.RawQuery = q.Encode()
 
 		// Build HTTP request
@@ -174,4 +180,62 @@ func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locatio
 	}
 
 	return updatedSchedules, nil
+}
+
+func (s *garbageService) GetLocationID(ctx context.Context, street string, number string, postcode string) ([]AddressResponseItem, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	baseURL := s.sourceURL
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return nil, err
+	}
+
+	query := street + " " + number + " " + postcode
+
+	q := u.Query()
+	q.Set("p_p_id", "portalCKMjunkschedules_WAR_portalCKMjunkschedulesportlet_INSTANCE_o5AIb2mimbRJ")
+	q.Set("p_p_lifecycle", "2")
+	q.Set("p_p_state", "normal")
+	q.Set("p_p_mode", "view")
+	q.Set("p_p_resource_id", "autocompleteResource")
+	q.Set("p_p_cacheability", "cacheLevelPage")
+	q.Set("_portalCKMjunkschedules_WAR_portalCKMjunkschedulesportlet_INSTANCE_o5AIb2mimbRJ_name", query)
+	u.RawQuery = q.Encode()
+
+	// Build HTTP request
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+	// Add standard headers to look like a browser
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("Accept", "application/json, text/javascript, */*; q=0.01")
+	req.Header.Set("X-Requested-With", "XMLHttpRequest")
+
+	time.Sleep(500 * time.Millisecond)
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("HTTP request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received non-200 status code: %d", resp.StatusCode)
+	}
+
+	bodyBytes, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response body: %w", err)
+	}
+	log.Println("Response body:", string(bodyBytes))
+
+	var items []AddressResponseItem
+	if err := json.Unmarshal(bodyBytes, &items); err != nil {
+		return nil, fmt.Errorf("failed to decode JSON response: %w", err)
+	}
+
+	return items, nil
 }

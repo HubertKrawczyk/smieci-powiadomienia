@@ -12,9 +12,10 @@ import (
 
 type UserRepository interface {
 	SaveUserLocation(ctx context.Context, user model.UserLocation) error
+	DeleteUserLocationByChatID(ctx context.Context, chatID int64) error
 	ListUsers(ctx context.Context) ([]model.UserLocation, error)
 	ListUsersWithTodayGarbage(ctx context.Context, today time.Time) ([]model.UserGarbageSchedule, error)
-	GetOutdatedLocationIDs(ctx context.Context) ([]int, error)
+	GetOutdatedLocationIDs(ctx context.Context) ([]string, error)
 	SaveGarbageSchedules(ctx context.Context, schedules []model.GarbageSchedule) error
 }
 
@@ -34,8 +35,8 @@ func (r *userRepository) SaveUserLocation(ctx context.Context, user model.UserLo
 	if strings.TrimSpace(user.Phone) == "" {
 		return fmt.Errorf("phone must not be empty")
 	}
-	if user.LocationID == 0 {
-		return fmt.Errorf("location_id must not be empty or zero")
+	if user.LocationID == "" {
+		return fmt.Errorf("location_id must not be empty")
 	}
 
 	// prepare address value: if empty, store NULL
@@ -55,12 +56,12 @@ func (r *userRepository) SaveUserLocation(ctx context.Context, user model.UserLo
 	// NOTE: This is a logged representation only and not executed as-is.
 	escapedName := strings.ReplaceAll(user.Name, "'", "''")
 	escapedPhone := strings.ReplaceAll(user.Phone, "'", "''")
-	logSQL := fmt.Sprintf("INSERT INTO user_locations (name, phone, location_id, address_name) VALUES ('%s','%s',%d,%s)", escapedName, escapedPhone, user.LocationID, addrForLog)
+	logSQL := fmt.Sprintf("INSERT INTO user_locations (chat_id, location_id, name, phone, address_name) VALUES (%d,'%s','%s','%s',%s)", user.ChatID, user.LocationID, escapedName, escapedPhone, addrForLog)
 	fmt.Println(logSQL)
 
 	// execute parameterized query using database/sql to remain DB-agnostic
-	query := `INSERT INTO user_locations (name, phone, location_id, address_name) VALUES ($1, $2, $3, $4)`
-	result, err := r.db.Conn.ExecContext(ctx, query, user.Name, user.Phone, user.LocationID, addrArg)
+	query := `INSERT INTO user_locations (chat_id, location_id, name, phone, address_name) VALUES ($1, $2, $3, $4, $5)`
+	result, err := r.db.Conn.ExecContext(ctx, query, user.ChatID, user.LocationID, user.Name, user.Phone, addrArg)
 	if err != nil {
 		// some drivers (Postgres) expect $1 style placeholders; to keep this code portable,
 		// only the driver needs to match the placeholder style. ExecContext will work with the
@@ -79,6 +80,12 @@ func (r *userRepository) SaveUserLocation(ctx context.Context, user model.UserLo
 	}
 	user.ID = id
 	return nil
+}
+
+func (r *userRepository) DeleteUserLocationByChatID(ctx context.Context, chatID int64) error {
+	query := `DELETE FROM user_locations WHERE chat_id = $1`
+	_, err := r.db.Conn.ExecContext(ctx, query, chatID)
+	return err
 }
 
 func (r *userRepository) ListUsers(ctx context.Context) ([]model.UserLocation, error) {
@@ -136,7 +143,7 @@ func (r *userRepository) ListUsersWithTodayGarbage(ctx context.Context, today ti
 	var matches []model.UserGarbageSchedule
 	for rows.Next() {
 		var item model.UserGarbageSchedule
-		var scheduleLocationID int
+		var scheduleLocationID string
 		if err := rows.Scan(
 			&item.User.ID,
 			&item.User.Name,
@@ -202,7 +209,7 @@ func (r *userRepository) SaveGarbageSchedules(ctx context.Context, schedules []m
 	return nil
 }
 
-func (r *userRepository) GetOutdatedLocationIDs(ctx context.Context) ([]int, error) {
+func (r *userRepository) GetOutdatedLocationIDs(ctx context.Context) ([]string, error) {
 	// Selects IDs where last_update is older than exactly 3 days ago
 	query := `
 		SELECT ul.location_id 
@@ -217,9 +224,9 @@ func (r *userRepository) GetOutdatedLocationIDs(ctx context.Context) ([]int, err
 	}
 	defer rows.Close()
 
-	var ids []int
+	var ids []string
 	for rows.Next() {
-		var id int
+		var id string
 		if err := rows.Scan(&id); err != nil {
 			return nil, fmt.Errorf("failed to scan location id: %w", err)
 		}

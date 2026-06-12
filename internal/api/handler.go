@@ -38,6 +38,7 @@ func (h *Handler) CreateUserLocation(w http.ResponseWriter, r *http.Request) {
 		Phone:       payload.Phone,
 		LocationID:  payload.LocationID,
 		AddressName: payload.AddressName,
+		ChatID:      -1,
 	}
 	fmt.Printf("User struct: %+v\n", user)
 
@@ -63,8 +64,8 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) FetchSchedules(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
-		LocationIDs      []int `json:"location_ids"`
-		FetchAllExisting bool  `json:"fetch_all_existing"`
+		LocationIDs      []string `json:"location_ids"`
+		FetchAllExisting bool     `json:"fetch_all_existing"`
 	}
 
 	if r.ContentLength > 0 {
@@ -77,7 +78,7 @@ func (h *Handler) FetchSchedules(w http.ResponseWriter, r *http.Request) {
 	// Decouple context from client disconnects/timeouts
 	ctx := context.WithoutCancel(r.Context())
 
-	var locationIDs []int
+	var locationIDs []string
 	if payload.FetchAllExisting {
 		users, err := h.repo.ListUsers(ctx)
 		if err != nil {
@@ -86,9 +87,9 @@ func (h *Handler) FetchSchedules(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Collect unique location IDs
-		seen := make(map[int]bool)
+		seen := make(map[string]bool)
 		for _, u := range users {
-			locID := int(u.LocationID)
+			locID := u.LocationID
 			if !seen[locID] {
 				seen[locID] = true
 				locationIDs = append(locationIDs, locID)

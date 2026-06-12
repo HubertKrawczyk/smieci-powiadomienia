@@ -12,9 +12,10 @@ package model
 
 type UserLocation struct {
 	ID          int64  `json:"id"`
+	ChatID      int64  `json:"chat_id"`
 	Name        string `json:"name"`
 	Phone       string `json:"phone"`
-	LocationID  int64  `json:"location_id"`
+	LocationID  string `json:"location_id"`
 	AddressName string `json:"address_name"`
 }
 
@@ -22,7 +23,7 @@ type UserLocationRequest struct {
 	Name        string `json:"name"`
 	Phone       string `json:"phone"`
 	AddressName string `json:"address_name"`
-	LocationID  int64  `json:"location_id"`
+	LocationID  string `json:"location_id"`
 }
 
 type FindLocationIDRequest struct {

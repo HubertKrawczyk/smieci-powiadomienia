@@ -2,22 +2,8 @@ package model
 
 import "time"
 
-// type GarbageEvent struct {
-// 	ID          int64  `json:"id"`
-// 	UserID      int64  `json:"user_id"`
-// 	City        string `json:"city"`
-// 	District    string `json:"district"`
-// 	CollectedOn string `json:"collected_on"`
-// 	Type        string `json:"type"`
-// }
-
-// type GarbageSchedule struct {
-// 	// Location   Location   `json:"location"`
-// 	Collection []string `json:"collection_dates"`
-// }
-
 type GarbageSchedule struct {
-	LocationID           int        `json:"location_id" db:"location_id"`
+	LocationID           string     `json:"location_id" db:"location_id"`
 	DateZmieszane        *time.Time `json:"date_zmieszane,omitempty" db:"date_zmieszane"`
 	DatePapier           *time.Time `json:"date_papier,omitempty" db:"date_papier"`
 	DatePlastik          *time.Time `json:"date_plastik,omitempty" db:"date_plastik"`

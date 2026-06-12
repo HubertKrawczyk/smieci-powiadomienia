@@ -35,7 +35,7 @@ func (s *Scheduler) ScheduleDailyTasks() {
 }
 
 func (s *Scheduler) runDailyJob() {
-	log.Println("=== Starting Daily Scheduler Job ===")
+	log.Println("=== StartingScheduler Job ===")
 
 	// Create a base context with a maximum timeout of 10 minutes for the whole job
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -48,7 +48,7 @@ func (s *Scheduler) runDailyJob() {
 	}
 
 	if len(outdatedIDs) == 0 {
-		log.Println("Scheduler: All database cache schedules are up to date. No scraping needed.")
+		log.Println("Scheduler: All database cache schedules are up to date.")
 	} else {
 		log.Printf("Scheduler: Found %d outdated locations. Initializing scraper sync...", len(outdatedIDs))
 
@@ -68,10 +68,10 @@ func (s *Scheduler) runDailyJob() {
 		}
 	}
 
-	log.Println("Scheduler: Checking schedules to determine tomorrow's SMS notifications...")
+	log.Println("Scheduler: Checking schedules...")
 	s.processAndSendSMSNotifications(ctx)
 
-	log.Println("=== Daily Scheduler Job Finished ===")
+	log.Println("=== Scheduler Job Finished ===")
 }
 
 func (s *Scheduler) processAndSendSMSNotifications(ctx context.Context) {
