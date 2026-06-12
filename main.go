@@ -31,10 +31,11 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	// smsService := service.NewSMSService(cfg.SMSProviderAPIKey)
 	garbageService := service.NewGarbageService(cfg.CityGarbageURL)
-	appScheduler := scheduler.NewScheduler(userRepo, garbageService, nil)
+	telegramSvc := service.NewTelegramService(cfg.TelegramBotToken)
+	appScheduler := scheduler.NewScheduler(userRepo, garbageService, nil, telegramSvc)
 
 	router := api.NewRouter(userRepo, garbageService,
-		cfg.TelegramSecretToken, cfg.TelegramBotToken)
+		cfg.TelegramSecretToken, telegramSvc)
 	appScheduler.ScheduleDailyTasks()
 
 	srv := &http.Server{

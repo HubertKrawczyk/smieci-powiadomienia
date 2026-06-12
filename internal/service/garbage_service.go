@@ -129,6 +129,7 @@ func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locatio
 			// Combine items from harmonogramy and harmonogramyZ
 			var allSchedules []HarmonogramItem
 			allSchedules = append(allSchedules, items[0].Harmonogramy...)
+			allSchedules = append(allSchedules, items[0].HarmonogramyN...)
 			allSchedules = append(allSchedules, items[0].HarmonogramyZ...)
 
 			for _, h := range allSchedules {

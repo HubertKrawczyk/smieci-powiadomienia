@@ -7,10 +7,10 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func NewRouter(repo repository.UserRepository, garbageSvc service.GarbageService, telegramSecretToken string, telegramBotToken string) *mux.Router {
+func NewRouter(repo repository.UserRepository, garbageSvc service.GarbageService, telegramSecretToken string, telegramSvc service.TelegramService) *mux.Router {
 	router := mux.NewRouter()
 	handler := NewHandler(repo, garbageSvc)
-	telegramHandler := NewTelegramHandler(repo, garbageSvc, telegramSecretToken, telegramBotToken)
+	telegramHandler := NewTelegramHandler(repo, garbageSvc, telegramSecretToken, telegramSvc)
 
 	router.HandleFunc("/health", handler.HealthCheck).Methods("GET")
 	router.HandleFunc("/users", handler.CreateUserLocation).Methods("POST")

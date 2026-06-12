@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -14,13 +15,20 @@ type Scheduler struct {
 	userRepo       repository.UserRepository
 	garbageService service.GarbageService
 	smsService     service.SMSService
+	telegramSvc    service.TelegramService
 }
 
-func NewScheduler(userRepo repository.UserRepository, garbageService service.GarbageService, smsService service.SMSService) *Scheduler {
-	return &Scheduler{userRepo: userRepo, garbageService: garbageService, smsService: smsService}
+func NewScheduler(userRepo repository.UserRepository, garbageService service.GarbageService, smsService service.SMSService, telegramSvc service.TelegramService) *Scheduler {
+	return &Scheduler{
+		userRepo:       userRepo,
+		garbageService: garbageService,
+		smsService:     smsService,
+		telegramSvc:    telegramSvc,
+	}
 }
 
 func (s *Scheduler) ScheduleDailyTasks() {
+	// 1. Daily scraper sync loop
 	go func() {
 		// Run once immediately on startup so you don't wait 24h to test it
 		s.runDailyJob()
@@ -32,10 +40,23 @@ func (s *Scheduler) ScheduleDailyTasks() {
 			s.runDailyJob()
 		}
 	}()
+
+	// 2. Hourly notifications check loop
+	go func() {
+		// Run once immediately on startup so notifications check runs at start
+		s.runHourlyJob()
+
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+
+		for range ticker.C {
+			s.runHourlyJob()
+		}
+	}()
 }
 
 func (s *Scheduler) runDailyJob() {
-	log.Println("=== StartingScheduler Job ===")
+	log.Println("=== Starting Daily Scraper Scheduler Job ===")
 
 	// Create a base context with a maximum timeout of 10 minutes for the whole job
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
@@ -68,27 +89,110 @@ func (s *Scheduler) runDailyJob() {
 		}
 	}
 
-	log.Println("Scheduler: Checking schedules...")
-	s.processAndSendSMSNotifications(ctx)
-
-	log.Println("=== Scheduler Job Finished ===")
-}
-
-func (s *Scheduler) processAndSendSMSNotifications(ctx context.Context) {
-
-}
-
-// Helper logic to build the warning message if a date hits tomorrow
-func (s *Scheduler) checkPickupTomorrow(sched *model.GarbageSchedule, tomorrow time.Time) string {
-	if sched == nil {
-		return ""
+	log.Println("Scheduler: Cleaning up orphaned garbage schedules...")
+	if err := s.userRepo.DeleteOrphanedSchedules(ctx); err != nil {
+		log.Printf("Scheduler error: failed to clean up orphaned schedules: %v", err)
 	}
 
-	targetDate := tomorrow.Format("2006-01-02")
+	log.Println("=== Daily Scraper Scheduler Job Finished ===")
+}
+
+func (s *Scheduler) runHourlyJob() {
+	log.Println("=== Starting Hourly Scheduler Job ===")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	now := time.Now()
+	hour := now.Hour()
+
+	var targetPref string
+	var isTomorrow bool
+
+	switch hour {
+	case 7:
+		targetPref = "morning_7"
+		isTomorrow = false
+	case 8:
+		targetPref = "morning_8"
+		isTomorrow = false
+	case 9:
+		targetPref = "morning_9"
+		isTomorrow = false
+	case 10:
+		targetPref = "morning_10"
+		isTomorrow = false
+	case 19:
+		targetPref = "day_before_19"
+		isTomorrow = true
+	case 20:
+		targetPref = "day_before_20"
+		isTomorrow = true
+	case 21:
+		targetPref = "day_before_21"
+		isTomorrow = true
+	default:
+		log.Printf("Scheduler: hour %d has no notifications configured. Skipping.", hour)
+		return
+	}
+
+	log.Printf("Scheduler: Processing notifications for preference %q...", targetPref)
+
+	userSchedules, err := s.userRepo.ListUsersWithPreferenceAndSchedule(ctx, targetPref)
+	if err != nil {
+		log.Printf("Scheduler error: failed to fetch users with preference %q: %v", targetPref, err)
+		return
+	}
+
+	log.Printf("Scheduler: Found %d users with preference %q.", len(userSchedules), targetPref)
+
+	var targetDate time.Time
+	if isTomorrow {
+		targetDate = now.AddDate(0, 0, 1)
+	} else {
+		targetDate = now
+	}
+
+	for _, us := range userSchedules {
+		fractions := s.checkPickupForDate(&us.Schedule, targetDate)
+		if len(fractions) == 0 {
+			continue
+		}
+
+		fractionsStr := joinStrings(fractions, ", ")
+		var msg string
+		if isTomorrow {
+			msg = fmt.Sprintf("Przypomnienie: jutro (%s) odbiór następujących odpadów: %s. Pamiętaj o wystawieniu koszy/worków!", targetDate.Format("02.01.2006"), fractionsStr)
+		} else {
+			msg = fmt.Sprintf("Dzień dobry! Dzisiaj (%s) odbiór następujących odpadów: %s. Upewnij się, że kosze/worki są wystawione!", targetDate.Format("02.01.2006"), fractionsStr)
+		}
+
+		if us.User.ChatID != -1 {
+			log.Printf("Sending Telegram notification to user %s (ChatID: %d)", us.User.Name, us.User.ChatID)
+			s.sendTelegramMessage(us.User.ChatID, msg)
+		}
+
+		if s.smsService != nil && us.User.Phone != "" && us.User.Phone != "123456789" {
+			log.Printf("Sending SMS notification to user %s (Phone: %s)", us.User.Name, us.User.Phone)
+			if err := s.smsService.SendSMS(us.User.Phone, msg); err != nil {
+				log.Printf("Failed to send SMS to %s: %v", us.User.Phone, err)
+			}
+		}
+	}
+
+	log.Println("=== Hourly Scheduler Job Finished ===")
+}
+
+func (s *Scheduler) checkPickupForDate(sched *model.GarbageSchedule, targetDate time.Time) []string {
+	if sched == nil {
+		return nil
+	}
+
+	dateStr := targetDate.Format("2006-01-02")
 	var fractions []string
 
 	checkDate := func(t *time.Time, name string) {
-		if t != nil && t.Format("2006-01-02") == targetDate {
+		if t != nil && t.Format("2006-01-02") == dateStr {
 			fractions = append(fractions, name)
 		}
 	}
@@ -102,13 +206,13 @@ func (s *Scheduler) checkPickupTomorrow(sched *model.GarbageSchedule, tomorrow t
 	checkDate(sched.DateBioRestauracyjne, "bio restauracyjne")
 	checkDate(sched.DateGabaryty, "gabaryty")
 
-	if len(fractions) == 0 {
-		return ""
-	}
+	return fractions
+}
 
-	// Returns comma separated string if multiple pickups align on the same day
-	// e.g., "bio, plastik i metale"
-	return joinStrings(fractions, ", ")
+func (s *Scheduler) sendTelegramMessage(chatID int64, text string) {
+	if err := s.telegramSvc.SendMessage(context.Background(), chatID, text, nil); err != nil {
+		log.Printf("Scheduler error sending Telegram message: %v", err)
+	}
 }
 
 func joinStrings(elements []string, sep string) string {

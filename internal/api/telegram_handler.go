@@ -1,7 +1,7 @@
 package api
 
 import (
-	"bytes"
+	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -16,13 +16,11 @@ import (
 	"smieci-sms/internal/service"
 )
 
-const telegramAPIBase = "https://api.telegram.org"
-
 type TelegramHandler struct {
 	repo           repository.UserRepository
 	garbageService service.GarbageService
 	secretToken    string
-	botToken       string
+	telegramSvc    service.TelegramService
 }
 
 type ConversationState int
@@ -60,8 +58,8 @@ func getSession(chatID int64) *UserSession {
 	return sessions[chatID]
 }
 
-func NewTelegramHandler(repo repository.UserRepository, garbageService service.GarbageService, secretToken string, botToken string) *TelegramHandler {
-	return &TelegramHandler{repo: repo, garbageService: garbageService, secretToken: secretToken, botToken: botToken}
+func NewTelegramHandler(repo repository.UserRepository, garbageService service.GarbageService, secretToken string, telegramSvc service.TelegramService) *TelegramHandler {
+	return &TelegramHandler{repo: repo, garbageService: garbageService, secretToken: secretToken, telegramSvc: telegramSvc}
 }
 
 func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
@@ -290,106 +288,34 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TelegramHandler) sendTelegramMessage(chatID int64, text string, markup ...*model.TelegramInlineMenu) {
-	apiURL := fmt.Sprintf("%s/bot%s/sendMessage", telegramAPIBase, h.botToken)
-
-	payload := model.SendMessagePayload{
-		ChatID: chatID,
-		Text:   text,
+	var m *model.TelegramInlineMenu
+	if len(markup) > 0 {
+		m = markup[0]
 	}
-	if len(markup) > 0 && markup[0] != nil {
-		payload.ReplyMarkup = markup[0]
-	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Failed to marshal message payload: %v", err)
-		return
-	}
-
-	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Printf("Failed to post message to Telegram API: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Printf("Telegram API returned non-OK status: %d", resp.StatusCode)
+	if err := h.telegramSvc.SendMessage(context.Background(), chatID, text, m); err != nil {
+		log.Printf("TelegramHandler error: %v", err)
 	}
 }
 
 // sendCallbackAcknowledgment tells Telegram to clear the button loading state
 func (h *TelegramHandler) sendCallbackAcknowledgment(callbackQueryID string) {
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/answerCallbackQuery", h.botToken)
-
-	payload := model.AnswerCallbackPayload{
-		CallbackQueryID: callbackQueryID,
+	if err := h.telegramSvc.AnswerCallbackQuery(context.Background(), callbackQueryID); err != nil {
+		log.Printf("TelegramHandler error: %v", err)
 	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Failed to marshal callback acknowledgment: %v", err)
-		return
-	}
-
-	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Printf("Failed to post answerCallbackQuery: %v", err)
-		return
-	}
-	defer resp.Body.Close()
 }
 
 // sendTelegramEditMessage swaps out the button markup with a plain string confirmation
 func (h *TelegramHandler) sendTelegramEditMessage(chatID int64, messageID int64, text string) {
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageText", h.botToken)
-
-	payload := model.EditMessagePayload{
-		ChatID:    chatID,
-		MessageID: messageID,
-		Text:      text,
+	if err := h.telegramSvc.EditMessageText(context.Background(), chatID, messageID, text); err != nil {
+		log.Printf("TelegramHandler error: %v", err)
 	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Failed to marshal edit message payload: %v", err)
-		return
-	}
-
-	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Printf("Failed to post editMessageText: %v", err)
-		return
-	}
-	defer resp.Body.Close()
 }
 
 // sendTelegramEditReplyMarkup updates only the inline buttons layout dynamically
 func (h *TelegramHandler) sendTelegramEditReplyMarkup(chatID int64, messageID int64, markup *model.TelegramInlineMenu) {
-	apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/editMessageReplyMarkup", h.botToken)
-
-	payload := struct {
-		ChatID      int64                     `json:"chat_id"`
-		MessageID   int64                     `json:"message_id"`
-		ReplyMarkup *model.TelegramInlineMenu `json:"reply_markup"`
-	}{
-		ChatID:      chatID,
-		MessageID:   messageID,
-		ReplyMarkup: markup,
+	if err := h.telegramSvc.EditMessageReplyMarkup(context.Background(), chatID, messageID, markup); err != nil {
+		log.Printf("TelegramHandler error: %v", err)
 	}
-
-	body, err := json.Marshal(payload)
-	if err != nil {
-		log.Printf("Failed to marshal edit reply markup payload: %v", err)
-		return
-	}
-
-	resp, err := http.Post(apiURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Printf("Failed to post editMessageReplyMarkup: %v", err)
-		return
-	}
-	defer resp.Body.Close()
 }
 
 // buildScheduleKeyboard returns the dynamic keyboard of notification preferences

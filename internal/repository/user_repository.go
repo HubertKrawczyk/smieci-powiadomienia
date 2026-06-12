@@ -16,6 +16,8 @@ type UserRepository interface {
 	ListUsersWithTodayGarbage(ctx context.Context, today time.Time) ([]model.UserGarbageSchedule, error)
 	GetOutdatedLocationIDs(ctx context.Context) ([]string, error)
 	SaveGarbageSchedules(ctx context.Context, schedules []model.GarbageSchedule) error
+	ListUsersWithPreferenceAndSchedule(ctx context.Context, pref string) ([]model.UserGarbageSchedule, error)
+	DeleteOrphanedSchedules(ctx context.Context) error
 }
 
 type userRepository struct {
@@ -329,3 +331,100 @@ func (r *userRepository) GetOutdatedLocationIDs(ctx context.Context) ([]string, 
 
 	return ids, nil
 }
+
+func (r *userRepository) ListUsersWithPreferenceAndSchedule(ctx context.Context, pref string) ([]model.UserGarbageSchedule, error) {
+	query := `
+	SELECT
+		u.id,
+		u.chat_id,
+		u.name,
+		u.phone,
+		u.location_id,
+		u.address_name,
+		g.location_id,
+		g.date_zmieszane,
+		g.date_papier,
+		g.date_plastik,
+		g.date_szklo,
+		g.date_bio,
+		g.date_zielone,
+		g.date_bio_restauracyjne,
+		g.date_gabaryty,
+		g.last_update
+	FROM user_locations u
+	JOIN user_notifications un ON u.id = un.user_location_id
+	JOIN garbage_schedules g ON u.location_id = g.location_id
+	WHERE un.notification_time = $1
+	`
+
+	rows, err := r.db.Conn.QueryContext(ctx, query, pref)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var matches []model.UserGarbageSchedule
+	for rows.Next() {
+		var id int64
+		var chatID int64
+		var name string
+		var phone string
+		var locationID string
+		var addressName string
+		var scheduleLocationID string
+		var sched model.GarbageSchedule
+
+		if err := rows.Scan(
+			&id,
+			&chatID,
+			&name,
+			&phone,
+			&locationID,
+			&addressName,
+			&scheduleLocationID,
+			&sched.DateZmieszane,
+			&sched.DatePapier,
+			&sched.DatePlastik,
+			&sched.DateSzklo,
+			&sched.DateBio,
+			&sched.DateZielone,
+			&sched.DateBioRestauracyjne,
+			&sched.DateGabaryty,
+			&sched.LastUpdate,
+		); err != nil {
+			return nil, err
+		}
+		sched.LocationID = scheduleLocationID
+
+		item := model.UserGarbageSchedule{
+			User: model.UserLocation{
+				ID:                   id,
+				ChatID:               chatID,
+				Name:                 name,
+				Phone:                phone,
+				LocationID:           locationID,
+				AddressName:          addressName,
+				NotificationSettings: []string{pref},
+			},
+			Schedule: sched,
+		}
+		matches = append(matches, item)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return matches, nil
+}
+
+func (r *userRepository) DeleteOrphanedSchedules(ctx context.Context) error {
+	query := `
+		DELETE FROM garbage_schedules 
+		WHERE location_id NOT IN (
+			SELECT DISTINCT location_id FROM user_locations
+		);`
+	_, err := r.db.Conn.ExecContext(ctx, query)
+	return err
+}
+
