@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"smieci-sms/internal/model"
 )
@@ -13,7 +12,6 @@ type UserRepository interface {
 	SaveUserLocation(ctx context.Context, user model.UserLocation) error
 	DeleteUserLocationByChatID(ctx context.Context, chatID int64) error
 	ListUsers(ctx context.Context) ([]model.UserLocation, error)
-	ListUsersWithTodayGarbage(ctx context.Context, today time.Time) ([]model.UserGarbageSchedule, error)
 	GetOutdatedLocationIDs(ctx context.Context) ([]string, error)
 	SaveGarbageSchedules(ctx context.Context, schedules []model.GarbageSchedule) error
 	ListUsersWithPreferenceAndSchedule(ctx context.Context, pref string) ([]model.UserGarbageSchedule, error)
@@ -153,115 +151,6 @@ func (r *userRepository) ListUsers(ctx context.Context) ([]model.UserLocation, e
 		users = append(users, *userMap[id])
 	}
 	return users, nil
-}
-
-func (r *userRepository) ListUsersWithTodayGarbage(ctx context.Context, today time.Time) ([]model.UserGarbageSchedule, error) {
-	query := `
-	SELECT
-		u.id,
-		u.chat_id,
-		u.name,
-		u.phone,
-		u.location_id,
-		u.address_name,
-		COALESCE(un.notification_time, ''),
-		g.location_id,
-		g.date_zmieszane,
-		g.date_papier,
-		g.date_plastik,
-		g.date_szklo,
-		g.date_bio,
-		g.date_zielone,
-		g.date_bio_restauracyjne,
-		g.date_gabaryty,
-		g.last_update
-	FROM user_locations u
-	JOIN garbage_schedules g ON u.location_id = g.location_id
-	LEFT JOIN user_notifications un ON u.id = un.user_location_id
-	`
-
-	rows, err := r.db.Conn.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	type key struct {
-		userID     int64
-		locationID string
-	}
-	matchMap := make(map[key]*model.UserGarbageSchedule)
-	var orderedKeys []key
-
-	for rows.Next() {
-		var id int64
-		var chatID int64
-		var name string
-		var phone string
-		var locationID string
-		var addressName string
-		var notificationTime string
-		var scheduleLocationID string
-		var sched model.GarbageSchedule
-
-		if err := rows.Scan(
-			&id,
-			&chatID,
-			&name,
-			&phone,
-			&locationID,
-			&addressName,
-			&notificationTime,
-			&scheduleLocationID,
-			&sched.DateZmieszane,
-			&sched.DatePapier,
-			&sched.DatePlastik,
-			&sched.DateSzklo,
-			&sched.DateBio,
-			&sched.DateZielone,
-			&sched.DateBioRestauracyjne,
-			&sched.DateGabaryty,
-			&sched.LastUpdate,
-		); err != nil {
-			return nil, err
-		}
-		sched.LocationID = scheduleLocationID
-
-		k := key{userID: id, locationID: locationID}
-		item, exists := matchMap[k]
-		if !exists {
-			item = &model.UserGarbageSchedule{
-				User: model.UserLocation{
-					ID:          id,
-					ChatID:      chatID,
-					Name:        name,
-					Phone:       phone,
-					LocationID:  locationID,
-					AddressName: addressName,
-				},
-				Schedule: sched,
-			}
-			matchMap[k] = item
-			orderedKeys = append(orderedKeys, k)
-		}
-		if notificationTime != "" {
-			item.User.NotificationSettings = append(item.User.NotificationSettings, notificationTime)
-		}
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-
-	var matches []model.UserGarbageSchedule
-	for _, k := range orderedKeys {
-		item := matchMap[k]
-		if item.Schedule.HasToday(today) {
-			matches = append(matches, *item)
-		}
-	}
-
-	return matches, nil
 }
 
 func (r *userRepository) SaveGarbageSchedules(ctx context.Context, schedules []model.GarbageSchedule) error {
