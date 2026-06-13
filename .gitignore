@@ -16,3 +16,9 @@ vendor/
 
 # Database file
 *.db
+
+# Terraform
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/

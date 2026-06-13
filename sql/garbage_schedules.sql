@@ -1,4 +1,4 @@
-CREATE TABLE garbage_schedules (
+CREATE TABLE IF NOT EXISTS garbage_schedules (
     location_id VARCHAR(50) PRIMARY KEY,
     date_zmieszane DATE,
     date_papier DATE,

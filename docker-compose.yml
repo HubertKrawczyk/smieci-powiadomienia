@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: smieci_db
+    restart: always
+    environment:
+      POSTGRES_USER: smieci_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: smieci_sms
+      TZ: Europe/Warsaw
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U smieci_user -d smieci_sms" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: smieci_app
+    restart: always
+    # "expose" keeps port 8080 strictly inside the Docker network.
+    expose:
+      - "8080"
+    environment:
+      - PORT=8080
+      - TZ=Europe/Warsaw
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - TELEGRAM_SECRET_TOKEN=${TELEGRAM_SECRET_TOKEN}
+      - DATABASE_URL=postgres://smieci_user:${DB_PASSWORD}@db:5432/smieci_sms?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+
+  caddy:
+    image: caddy:latest
+    container_name: smieci_caddy
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

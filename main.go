@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"embed"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,6 +17,9 @@ import (
 	"smieci-sms/internal/service"
 )
 
+//go:embed sql/*.sql
+var sqlFiles embed.FS
+
 func main() {
 	cfg := config.LoadConfig()
 
@@ -27,6 +32,10 @@ func main() {
 		log.Fatalf("failed to connect to database: %v", err)
 	}
 	defer db.Close()
+
+	if err := initDatabase(db); err != nil {
+		log.Fatalf("failed to initialize database schema: %v", err)
+	}
 
 	userRepo := repository.NewUserRepository(db)
 	// smsService := service.NewSMSService(cfg.SMSProviderAPIKey)
@@ -60,4 +69,29 @@ func main() {
 	if err := srv.Shutdown(ctx); err != nil {
 		log.Fatalf("server shutdown failed: %v", err)
 	}
+}
+
+func initDatabase(db *repository.DB) error {
+	entries, err := sqlFiles.ReadDir("sql")
+	if err != nil {
+		return fmt.Errorf("failed to read embedded sql directory: %w", err)
+	}
+
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		filePath := "sql/" + entry.Name()
+		log.Printf("Executing SQL script: %s", filePath)
+
+		content, err := sqlFiles.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", filePath, err)
+		}
+
+		if _, err := db.Conn.Exec(string(content)); err != nil {
+			return fmt.Errorf("failed to execute sql script %s: %w", filePath, err)
+		}
+	}
+	return nil
 }

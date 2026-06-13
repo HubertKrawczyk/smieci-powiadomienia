@@ -1,0 +1,43 @@
+name: Deploy to Oracle Cloud
+
+on:
+  push:
+    branches:
+      - main # Triggers the deployment automatically on push to main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Copy project files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "."
+          target: "/app"
+          rm: false # Prevents deleting existing server-side files not in the repo
+
+      - name: Execute deployment and rebuild containers
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            cd /app
+            
+            # Dynamically generate the .env file strictly from GitHub Secrets
+            echo "TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}" > .env
+            echo "TELEGRAM_SECRET_TOKEN=${{ secrets.TELEGRAM_SECRET_TOKEN }}" >> .env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            
+            # Force Docker Compose to rebuild the Go app with the new code
+            docker-compose up -d --build
+            
+            # Clean up dangling images left behind by the build process
+            docker image prune -f
