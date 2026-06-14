@@ -5,7 +5,7 @@ This project is an automated bot system designed to remind residents about upcom
 
 **Try it out on Telegram!**
 🤖 Name: **Śmieci Warszawa powiadomienia**
-🔗 ID: [@smieciwarszawapowiadomienia_bot](https://t.me/smieciwarszawapowiadomienia_bot)
+🔗 ID: [@smieciwarszawapowiadomienia_bot](https://t.me/smieciwarszawapowiadomienia_bot) (on mobile phone)
 
 ## 🎯 Why was it created?
 In Warsaw, the garbage operator comes very frequently—on average every 2 days, and sometimes even two/three days in a row! To make matters more complicated, each day is dedicated to a completely different type of waste (e.g., paper one day, plastics the next). The schedule also likes to change quite often. 
@@ -25,6 +25,12 @@ Additionally, this project serves as a personal learning ground. I am using this
 - Background jobs for processing schedules and sending out notifications reliably.
 - Persistent and safe data storage using PostgreSQL.
 - Fully containerized environment orchestratable via `docker-compose`.
+
+<img width="400" alt="1" src="https://github.com/user-attachments/assets/8320da91-17c8-422d-9a0e-28cdac5e9fcf" />
+
+<img width="400" alt="2" src="https://github.com/user-attachments/assets/bd85bb62-06fb-4eb2-a514-eefaeaa0d54a" />
+
+<img width="400" alt="3" src="https://github.com/user-attachments/assets/bbc24e06-c7bc-4ee7-9d16-8bc318821832" />
 
 ---
 *Project in progress.*
