@@ -44,7 +44,7 @@ func main() {
 	appScheduler := scheduler.NewScheduler(userRepo, garbageService, nil, telegramSvc)
 
 	router := api.NewRouter(userRepo, garbageService,
-		cfg.TelegramSecretToken, telegramSvc)
+		cfg.TelegramSecretToken, telegramSvc, cfg.AdminSecret)
 	appScheduler.ScheduleDailyTasks()
 
 	srv := &http.Server{

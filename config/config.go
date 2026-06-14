@@ -11,6 +11,7 @@ type Config struct {
 	CityGarbageURL      string
 	TelegramSecretToken string
 	TelegramBotToken    string
+	AdminSecret         string
 }
 
 func LoadConfig() Config {
@@ -20,6 +21,7 @@ func LoadConfig() Config {
 		CityGarbageURL:      getEnv("CITY_GARBAGE_URL", ""),
 		TelegramSecretToken: getEnv("TELEGRAM_SECRET_TOKEN", ""),
 		TelegramBotToken:    getEnv("TELEGRAM_BOT_TOKEN", ""),
+		AdminSecret:         getEnv("ADMIN_SECRET", ""),
 	}
 }
 
@@ -30,6 +32,7 @@ func (c Config) Validate() error {
 		"CITY_GARBAGE_URL":      c.CityGarbageURL,
 		"TELEGRAM_SECRET_TOKEN": c.TelegramSecretToken,
 		"TELEGRAM_BOT_TOKEN":    c.TelegramBotToken,
+		"ADMIN_SECRET":          c.AdminSecret,
 	}
 
 	for key, val := range required {

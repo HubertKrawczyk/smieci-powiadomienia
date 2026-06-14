@@ -17,7 +17,7 @@ Additionally, this project serves as a personal learning ground. I am using this
 - **Docker**: Containerizing the application and PostgreSQL database for consistent local development and deployment.
 - **Terraform**: Provisioning and managing infrastructure as code (IaC) for deployments.
 - **GitHub Actions**: Automating CI/CD pipelines to easily test, build, and deploy the application.
-- **Antigravity**: Leveraging advanced AI agentic tools for pair programming, debugging, and development automation.
+- **AI tools**: Leveraging advanced AI agentic tools for pair programming, debugging, and development automation.
 
 ## 🛠 Key Features
 - Interactive Telegram bot for easy user registration (`/start`, `/harmonogram`, `/anuluj`).

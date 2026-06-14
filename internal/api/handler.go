@@ -26,32 +26,6 @@ func (h *Handler) HealthCheck(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
-func (h *Handler) CreateUserLocation(w http.ResponseWriter, r *http.Request) {
-	var payload model.UserLocationRequest
-	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
-		http.Error(w, "invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	user := model.UserLocation{
-		Name:        payload.Name,
-		Phone:       payload.Phone,
-		LocationID:  payload.LocationID,
-		AddressName: payload.AddressName,
-		ChatID:      -1,
-	}
-	fmt.Printf("User struct: %+v\n", user)
-
-	if err := h.repo.SaveUserLocation(r.Context(), user); err != nil {
-		log.Printf("ERROR: SaveUserLocation failed: %v", err)
-		http.Error(w, "failed to save user", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(user)
-}
-
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.repo.ListUsers(r.Context())
 	if err != nil {
