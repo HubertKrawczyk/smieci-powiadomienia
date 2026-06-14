@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -125,6 +126,10 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 				session.State = StateNone
 				h.sendTelegramMessage(chatID, messages.RegistrationCanceled)
 				return
+			}
+
+			if !strings.HasPrefix(cb.Data, "loc_") {
+				return // Ignore clicks on older buttons (e.g., from schedule menu)
 			}
 
 			// Extract your AddressPointID from the payload string
@@ -363,6 +368,13 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 				h.sendTelegramMessage(chatID, messages.ErrorFindLocation)
 				return
 			}
+
+			if len(items) == 0 {
+				session.State = StateNone
+				h.sendTelegramMessage(chatID, "Nie znaleziono takiej lokalizacji. Wpisz /start, aby spróbować ponownie.")
+				return
+			}
+
 			// 1. Dynamically build the rows of inline buttons from your items array
 			var buttons [][]model.TelegramInlineButton
 			for _, item := range items {
@@ -395,6 +407,11 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 			reMorning := regexp.MustCompile(`^(\d{1,2})(?::00)?$`)
 
 			if matches := reDayBefore.FindStringSubmatch(textUpper); len(matches) > 1 {
+				hourInt, _ := strconv.Atoi(matches[1])
+				if hourInt < 0 || hourInt > 23 {
+					h.sendTelegramMessage(chatID, "Błędna godzina. Podaj poprawną godzinę (od 0 do 23).")
+					return
+				}
 				pref := fmt.Sprintf("day_before_%s", matches[1])
 				
 				alreadyHas := false
@@ -414,6 +431,11 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 					h.sendTelegramMessage(chatID, fmt.Sprintf("Dodano godzinę: %s", formatPreference(pref)), newMenu)
 				}
 			} else if matches := reMorning.FindStringSubmatch(textUpper); len(matches) > 1 {
+				hourInt, _ := strconv.Atoi(matches[1])
+				if hourInt < 0 || hourInt > 23 {
+					h.sendTelegramMessage(chatID, "Błędna godzina. Podaj poprawną godzinę (od 0 do 23).")
+					return
+				}
 				pref := fmt.Sprintf("morning_%s", matches[1])
 
 				alreadyHas := false
