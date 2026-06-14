@@ -134,7 +134,7 @@ resource "oci_core_instance" "free_arm_vm" {
 
       # 3. Update indices and install stable Docker engine tooling + curl
       apt-get update
-      apt-get install -y docker.io docker-compose curl
+      apt-get install -y docker.io docker-compose docker-compose-v2 curl
 
       # 4. Create deployment directories and configure folder owners
       mkdir -p /app
