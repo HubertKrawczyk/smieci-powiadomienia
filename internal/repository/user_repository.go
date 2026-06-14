@@ -162,14 +162,28 @@ func (r *userRepository) GetUserScheduleByChatID(ctx context.Context, chatID int
 		sched.LocationID = *scheduleLocationID
 	}
 
+	// Fetch notification settings
+	var notifs []string
+	notifQuery := `SELECT notification_time FROM user_notifications WHERE user_location_id = $1`
+	if rows, err := r.db.Conn.QueryContext(ctx, notifQuery, id); err == nil {
+		defer rows.Close()
+		for rows.Next() {
+			var n string
+			if rows.Scan(&n) == nil {
+				notifs = append(notifs, n)
+			}
+		}
+	}
+
 	return &model.UserGarbageSchedule{
 		User: model.UserLocation{
-			ID:          id,
-			ChatID:      dbChatID,
-			Name:        name,
-			Phone:       phone,
-			LocationID:  locationID,
-			AddressName: addressName,
+			ID:                   id,
+			ChatID:               dbChatID,
+			Name:                 name,
+			Phone:                phone,
+			LocationID:           locationID,
+			AddressName:          addressName,
+			NotificationSettings: notifs,
 		},
 		Schedule: sched,
 	}, nil
