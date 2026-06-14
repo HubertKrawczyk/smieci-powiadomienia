@@ -36,7 +36,7 @@ const (
    - Telegram Chat ID (Twoje imię, nazwa użytkownika czy numer telefonu z Telegrama NIE są zapisywane).
    - Wybrany adres (dokładna nazwa lokalizacji oraz identyfikator punktu wywozu zwrócone przez miejskie API Warszawy).
 4. Przechowywanie danych: Dane są przechowywane w bazie wyłącznie po to, aby móc wysyłać powiadomienia. W każdej chwili możesz je usunąć za pomocą komendy ` + commands.Usun + `.
-5. Status: Aplikacja jest projektem prywatnym i nie jest oficjalnym produktem m.st. Warszawy. Dane nie są przekazywane podmiotom trzecim.`
+5. Status: Aplikacja jest projektem prywatnym i nie jest oficjalnym produktem miasta stołecznego Warszawy. Dane nie są przekazywane podmiotom trzecim.`
 
 	HarmonogramError         = "Wystąpił błąd podczas pobierania harmonogramu. Spróbuj ponownie później."
 	HarmonogramNotRegistered = "Nie znaleziono Twojego adresu w bazie. Wpisz " + commands.Start + " aby rozpocząć rejestrację."
