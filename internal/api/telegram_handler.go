@@ -181,9 +181,9 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 					err := h.repo.SaveUserLocation(r.Context(), model.UserLocation{
 						ChatID:               chatID,
 						LocationID:           session.LocationID,
-						Name:                 session.LocationName,
+						Name:                 "Użytkownik",
 						Phone:                "123456789",
-						AddressName:          session.Postcode,
+						AddressName:          session.LocationName,
 						NotificationSettings: session.SelectedPreferences,
 					})
 
@@ -279,6 +279,11 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 			h.sendTelegramMessage(chatID, messages.HarmonogramPending)
 		} else {
 			var sb strings.Builder
+			
+			if schedule.User.AddressName != "" {
+				sb.WriteString(fmt.Sprintf("📍 Adres: %s\n", schedule.User.AddressName))
+			}
+			
 			if !schedule.Schedule.LastUpdate.IsZero() {
 				sb.WriteString(fmt.Sprintf(messages.HarmonogramHeaderDate, schedule.Schedule.LastUpdate.Format("2006-01-02 15:04")))
 			} else {
