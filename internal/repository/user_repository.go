@@ -18,6 +18,7 @@ type UserRepository interface {
 	SaveGarbageSchedules(ctx context.Context, schedules []model.GarbageSchedule) error
 	ListUsersWithPreferenceAndSchedule(ctx context.Context, pref string) ([]model.UserGarbageSchedule, error)
 	DeleteOrphanedSchedules(ctx context.Context) error
+	MarkNotificationAsSent(ctx context.Context, userID int64, notifTime string) error
 }
 
 type userRepository struct {
@@ -333,7 +334,8 @@ func (r *userRepository) ListUsersWithPreferenceAndSchedule(ctx context.Context,
 	FROM user_locations u
 	JOIN user_notifications un ON u.id = un.user_location_id
 	JOIN garbage_schedules g ON u.location_id = g.location_id
-	WHERE un.notification_time = $1
+	LEFT JOIN sent_notifications sn ON u.id = sn.user_id AND sn.notification_time = $1 AND sn.sent_date = CURRENT_DATE
+	WHERE un.notification_time = $1 AND sn.user_id IS NULL
 	`
 
 	rows, err := r.db.Conn.QueryContext(ctx, query, pref)
@@ -404,5 +406,15 @@ func (r *userRepository) DeleteOrphanedSchedules(ctx context.Context) error {
 			SELECT DISTINCT location_id FROM user_locations
 		);`
 	_, err := r.db.Conn.ExecContext(ctx, query)
+	return err
+}
+
+func (r *userRepository) MarkNotificationAsSent(ctx context.Context, userID int64, notifTime string) error {
+	query := `
+		INSERT INTO sent_notifications (user_id, notification_time, sent_date)
+		VALUES ($1, $2, CURRENT_DATE)
+		ON CONFLICT (user_id, notification_time, sent_date) DO NOTHING;
+	`
+	_, err := r.db.Conn.ExecContext(ctx, query, userID, notifTime)
 	return err
 }

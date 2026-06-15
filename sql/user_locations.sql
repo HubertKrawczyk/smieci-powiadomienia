@@ -14,3 +14,12 @@ CREATE TABLE IF NOT EXISTS user_notifications (
     notification_time VARCHAR(50) NOT NULL,
     PRIMARY KEY (user_location_id, notification_time)
 );
+
+CREATE TABLE IF NOT EXISTS sent_notifications (
+    user_id BIGINT NOT NULL,
+    notification_time VARCHAR(50) NOT NULL,
+    sent_date DATE NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (user_id, notification_time, sent_date),
+    FOREIGN KEY (user_id) REFERENCES user_locations(id) ON DELETE CASCADE
+);

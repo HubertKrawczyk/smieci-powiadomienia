@@ -158,15 +158,18 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 			msg = fmt.Sprintf("Dzień dobry! Dzisiaj (%s) odbiór następujących odpadów: %s. Upewnij się, że kosze/worki są wystawione!", targetDate.Format("02.01.2006"), fractionsStr)
 		}
 
+		var sentAny bool
+
 		if us.User.ChatID != -1 {
 			log.Printf("Sending Telegram notification to user %s (ChatID: %d)", us.User.Name, us.User.ChatID)
-			s.sendTelegramMessage(us.User.ChatID, msg)
+			if err := s.sendTelegramMessage(us.User.ChatID, msg); err == nil {
+				sentAny = true
+			}
 		}
 
-		if s.smsService != nil && us.User.Phone != "" && us.User.Phone != "123456789" {
-			log.Printf("Sending SMS notification to user %s (Phone: %s)", us.User.Name, us.User.Phone)
-			if err := s.smsService.SendSMS(us.User.Phone, msg); err != nil {
-				log.Printf("Failed to send SMS to %s: %v", us.User.Phone, err)
+		if sentAny {
+			if err := s.userRepo.MarkNotificationAsSent(ctx, us.User.ID, targetPref); err != nil {
+				log.Printf("Scheduler error: failed to mark notification as sent for user %d: %v", us.User.ID, err)
 			}
 		}
 	}
@@ -198,10 +201,12 @@ func (s *Scheduler) checkPickupForDate(sched *model.GarbageSchedule, targetDate 
 	return fractions
 }
 
-func (s *Scheduler) sendTelegramMessage(chatID int64, text string) {
+func (s *Scheduler) sendTelegramMessage(chatID int64, text string) error {
 	if err := s.telegramSvc.SendMessage(context.Background(), chatID, text, nil); err != nil {
 		log.Printf("Scheduler error sending Telegram message: %v", err)
+		return err
 	}
+	return nil
 }
 
 func joinStrings(elements []string, sep string) string {
