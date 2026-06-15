@@ -268,12 +268,12 @@ func (r *userRepository) SaveGarbageSchedules(ctx context.Context, schedules []m
 }
 
 func (r *userRepository) GetOutdatedLocationIDs(ctx context.Context) ([]string, error) {
-	// Selects IDs where last_update is older than exactly 3 days ago
+	// Selects IDs where last_update is older than exactly 1 day ago
 	query := `
 		SELECT ul.location_id 
 		FROM user_locations ul
 		LEFT JOIN garbage_schedules gs ON ul.location_id = gs.location_id
-		WHERE gs.last_update IS NULL OR gs.last_update < NOW() - INTERVAL '3 days'
+		WHERE gs.last_update IS NULL OR gs.last_update < NOW() - INTERVAL '23 hours'
 		GROUP BY ul.location_id;`
 
 	rows, err := r.db.Conn.QueryContext(ctx, query)
