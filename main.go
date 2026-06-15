@@ -4,11 +4,14 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"gopkg.in/natefinch/lumberjack.v2"
 
 	"smieci-sms/config"
 	"smieci-sms/internal/api"
@@ -21,6 +24,16 @@ import (
 var sqlFiles embed.FS
 
 func main() {
+	// Setup dual logging (stdout + file)
+	os.MkdirAll("/app/logs", 0755)
+	logFile := &lumberjack.Logger{
+		Filename:   "/app/logs/app.log",
+		MaxSize:    10, // megabytes, files will rotate when they hit this size
+		Compress:   true, // compress rotated files to save space
+	}
+	multiWriter := io.MultiWriter(os.Stdout, logFile)
+	log.SetOutput(multiWriter)
+
 	cfg := config.LoadConfig()
 
 	if err := cfg.Validate(); err != nil {

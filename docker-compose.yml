@@ -26,6 +26,12 @@ services:
     # "expose" keeps port 8080 strictly inside the Docker network.
     expose:
       - "8080"
+    volumes:
+      - ./logs:/app/logs
+    logging:
+      driver: loki
+      options:
+        loki-url: "https://${GRAFANA_USER_ID}:${GRAFANA_API_KEY}@${GRAFANA_LOKI_ENDPOINT}/loki/api/v1/push"
     environment:
       - PORT=8080
       - TZ=Europe/Warsaw
