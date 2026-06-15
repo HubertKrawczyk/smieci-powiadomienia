@@ -38,9 +38,6 @@ jobs:
             echo "CITY_GARBAGE_URL=${{ secrets.CITY_GARBAGE_URL }}" >> .env
             echo "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}" >> .env
             
-            # Automatically update Dynu DNS to point to this server's IP address
-            curl -s "https://api.dynu.com/nic/update?hostname=smieci-powiadomienia.ddnsfree.com&password=${{ secrets.DYNU_PASSWORD }}&myip=${{ secrets.SERVER_HOST }}"
-            
             docker compose up -d --build
             
             # Clean up dangling images left behind by the build process
