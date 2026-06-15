@@ -267,7 +267,6 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Message != nil && payload.Message.Text == commands.Usun {
 		chatID := payload.Message.Chat.ID
-		log.Printf("User on Chat ID %d wants to delete their data via %s", chatID, commands.Usun)
 
 		keyboard := &model.TelegramInlineMenu{
 			InlineKeyboard: [][]model.TelegramInlineButton{
@@ -290,7 +289,6 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Message != nil && payload.Message.Text == commands.Harmonogram {
 		chatID := payload.Message.Chat.ID
-		log.Printf("User on Chat ID %d requested their schedule via %s", chatID, commands.Harmonogram)
 
 		schedule, err := h.repo.GetUserScheduleByChatID(r.Context(), chatID)
 		if err != nil {
@@ -372,7 +370,6 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Message != nil && payload.Message.Text == commands.EdytujPowiadomienia {
 		chatID := payload.Message.Chat.ID
-		log.Printf("User on Chat ID %d wants to edit schedule via %s", chatID, commands.EdytujPowiadomienia)
 
 		schedule, err := h.repo.GetUserScheduleByChatID(r.Context(), chatID)
 		if err != nil {
@@ -399,7 +396,6 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Message != nil && (payload.Message.Text == commands.Prywatnosc || payload.Message.Text == commands.Privacy) {
 		chatID := payload.Message.Chat.ID
-		log.Printf("User on Chat ID %d requested privacy policy", chatID)
 
 		h.sendTelegramMessage(chatID, messages.PrivacyPolicy)
 
@@ -411,7 +407,7 @@ func (h *TelegramHandler) Start(w http.ResponseWriter, r *http.Request) {
 
 	if payload.Message != nil && payload.Message.Text == commands.Start {
 		chatID := payload.Message.Chat.ID
-		fmt.Printf("User on Chat ID %d wants to START the process!\n", chatID)
+		log.Printf("User wants to START the process!")
 
 		session := getOrCreateSession(chatID)
 		session.State = StateAwaitingStreet

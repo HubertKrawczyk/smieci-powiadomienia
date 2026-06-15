@@ -75,8 +75,6 @@ func (s *garbageService) FetchSchedulesForLocations(ctx context.Context, locatio
 			return nil, err
 		}
 
-		log.Printf("Refreshing schedule from website for location: %d", locID)
-
 		// Construct URL
 		u, err := url.Parse(baseURL)
 		if err != nil {
@@ -231,7 +229,6 @@ func (s *garbageService) GetLocationID(ctx context.Context, street string, numbe
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response body: %w", err)
 	}
-	log.Println("Response body:", string(bodyBytes))
 
 	var items []AddressResponseItem
 	if err := json.Unmarshal(bodyBytes, &items); err != nil {

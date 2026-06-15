@@ -144,6 +144,8 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 		targetDate = now
 	}
 
+	log.Printf("Scheduler: Found %d users with preference %q.", len(userSchedules), targetPref)
+
 	for _, us := range userSchedules {
 		fractions := s.checkPickupForDate(&us.Schedule, targetDate)
 		if len(fractions) == 0 {
@@ -161,7 +163,6 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 		var sentAny bool
 
 		if us.User.ChatID != -1 {
-			log.Printf("Sending Telegram notification to user %s (ChatID: %d)", us.User.Name, us.User.ChatID)
 			if err := s.sendTelegramMessage(us.User.ChatID, msg); err == nil {
 				sentAny = true
 			}

@@ -38,25 +38,12 @@ func (r *userRepository) SaveUserLocation(ctx context.Context, user model.UserLo
 		return fmt.Errorf("location_id must not be empty")
 	}
 
-	// prepare address value: if empty, store NULL
 	var addrArg interface{}
-	var addrForLog string
 	if strings.TrimSpace(user.AddressName) == "" {
 		addrArg = nil
-		addrForLog = "NULL"
 	} else {
 		addrArg = user.AddressName
-		// escape single quotes for logging representation
-		escaped := strings.ReplaceAll(user.AddressName, "'", "''")
-		addrForLog = fmt.Sprintf("'%s'", escaped)
 	}
-
-	// prepare log of full insert statement for visibility in cmd
-	// NOTE: This is a logged representation only and not executed as-is.
-	escapedName := strings.ReplaceAll(user.Name, "'", "''")
-	escapedPhone := strings.ReplaceAll(user.Phone, "'", "''")
-	logSQL := fmt.Sprintf("INSERT INTO user_locations (chat_id, location_id, name, phone, address_name) VALUES (%d,'%s','%s','%s',%s)", user.ChatID, user.LocationID, escapedName, escapedPhone, addrForLog)
-	fmt.Println(logSQL)
 
 	// execute in transaction to keep locations and notifications in sync
 	tx, err := r.db.Conn.BeginTx(ctx, nil)
@@ -65,7 +52,7 @@ func (r *userRepository) SaveUserLocation(ctx context.Context, user model.UserLo
 	}
 	defer tx.Rollback()
 
-	// execute parameterized query using RETURNING id to remain DB-agnostic & fetch generated ID
+	// execute parameterized query using RETURNING id to fetch generated ID
 	query := `INSERT INTO user_locations (chat_id, location_id, name, phone, address_name) VALUES ($1, $2, $3, $4, $5) RETURNING id`
 	var insertedID int64
 	err = tx.QueryRowContext(ctx, query, user.ChatID, user.LocationID, user.Name, user.Phone, addrArg).Scan(&insertedID)
