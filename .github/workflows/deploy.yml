@@ -39,7 +39,10 @@ jobs:
             echo "ADMIN_SECRET=${{ secrets.ADMIN_SECRET }}" >> .env
             echo "GRAFANA_USER_ID=${{ secrets.GRAFANA_USER_ID }}" >> .env
             echo "GRAFANA_API_KEY=${{ secrets.GRAFANA_API_KEY }}" >> .env
-            echo "GRAFANA_LOKI_ENDPOINT=${{ secrets.GRAFANA_LOKI_ENDPOINT }}" >> .env
+            
+            # Strip https:// if it was included in the secret to prevent double https:// in docker-compose
+            CLEAN_ENDPOINT=$(echo "${{ secrets.GRAFANA_LOKI_ENDPOINT }}" | sed 's|^https://||')
+            echo "GRAFANA_LOKI_ENDPOINT=$CLEAN_ENDPOINT" >> .env
             
             docker compose up -d --build
             
