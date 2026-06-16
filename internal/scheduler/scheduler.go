@@ -114,25 +114,25 @@ func (s *Scheduler) runHourlyJob() {
 	hour := now.Hour()
 
 	// 1. Process notifications for today (morning_X)
-	s.processNotifications(ctx, fmt.Sprintf("morning_%d", hour), false, now)
+	sentToday := s.processNotifications(ctx, fmt.Sprintf("morning_%d", hour), false, now)
 
 	// 2. Process notifications for tomorrow (day_before_X)
-	s.processNotifications(ctx, fmt.Sprintf("day_before_%d", hour), true, now)
+	sentTomorrow := s.processNotifications(ctx, fmt.Sprintf("day_before_%d", hour), true, now)
 
-	log.Println("=== Hourly Scheduler Job Finished ===")
+	log.Printf("=== Hourly Scheduler Job Finished. Total notifications sent: %d ===", sentToday+sentTomorrow)
 }
 
-func (s *Scheduler) processNotifications(ctx context.Context, targetPref string, isTomorrow bool, now time.Time) {
+func (s *Scheduler) processNotifications(ctx context.Context, targetPref string, isTomorrow bool, now time.Time) int {
 	log.Printf("Scheduler: Processing notifications for preference %q...", targetPref)
 
 	userSchedules, err := s.userRepo.ListUsersWithPreferenceAndSchedule(ctx, targetPref)
 	if err != nil {
 		log.Printf("Scheduler error: failed to fetch users with preference %q: %v", targetPref, err)
-		return
+		return 0
 	}
 
 	if len(userSchedules) == 0 {
-		return
+		return 0
 	}
 
 	log.Printf("Scheduler: Found %d users with preference %q.", len(userSchedules), targetPref)
@@ -144,7 +144,7 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 		targetDate = now
 	}
 
-	log.Printf("Scheduler: Found %d users with preference %q.", len(userSchedules), targetPref)
+	sentCount := 0
 
 	for _, us := range userSchedules {
 		fractions := s.checkPickupForDate(&us.Schedule, targetDate)
@@ -165,6 +165,7 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 		if us.User.ChatID != -1 {
 			if err := s.sendTelegramMessage(us.User.ChatID, msg); err == nil {
 				sentAny = true
+				sentCount++
 			}
 		}
 
@@ -174,6 +175,9 @@ func (s *Scheduler) processNotifications(ctx context.Context, targetPref string,
 			}
 		}
 	}
+
+	log.Printf("Scheduler: Sent %d notifications for preference %q.", sentCount, targetPref)
+	return sentCount
 }
 
 func (s *Scheduler) checkPickupForDate(sched *model.GarbageSchedule, targetDate time.Time) []string {
